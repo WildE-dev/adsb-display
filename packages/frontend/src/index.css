@@ -1,0 +1,96 @@
+/* packages/frontend/src/index.css */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Aviation color palette */
+  --color-bg:           #090e14;
+  --color-surface:      #0d1520;
+  --color-surface-2:    #111d2e;
+  --color-border:       rgba(99, 179, 237, 0.12);
+  --color-border-bright:rgba(99, 179, 237, 0.25);
+
+  /* Text */
+  --color-text-primary:  #e8f4ff;
+  --color-text-secondary:#7bafd4;
+  --color-text-muted:    #3d6480;
+
+  /* Accent — radar green */
+  --color-accent:        #00ff88;
+  --color-accent-dim:    rgba(0, 255, 136, 0.15);
+  --color-accent-glow:   rgba(0, 255, 136, 0.4);
+
+  /* Status colors */
+  --color-vfr:           #00cc66;
+  --color-mvfr:          #4488ff;
+  --color-ifr:           #ff4444;
+  --color-lifr:          #ff44ff;
+
+  /* Altitude bands */
+  --color-alt-low:       #44aaff;
+  --color-alt-mid:       #44ffaa;
+  --color-alt-high:      #ffaa44;
+  --color-alt-vhigh:     #ff6644;
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  /* Timing */
+  --transition-scene:    800ms;
+  --transition-fast:     150ms;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Prevent text selection on a kiosk display */
+  user-select: none;
+}
+
+/* Scanline overlay — subtle CRT effect for the radar aesthetic */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Utility classes used across scenes */
+.mono { font-family: var(--font-mono); }
+
+.glow-text {
+  text-shadow:
+    0 0 10px currentColor,
+    0 0 20px currentColor;
+}
+
+.glow-green {
+  color: var(--color-accent);
+  text-shadow:
+    0 0 8px var(--color-accent-glow),
+    0 0 20px var(--color-accent-glow);
+}
+
+.scene-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}

@@ -1,9 +1,15 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App";
+// packages/frontend/src/main.tsx
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+// @ts-ignore: Cannot find module or type declarations for CSS import
+import './index.css'
+import App from './App.js'
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>
-);
+const root = document.getElementById('root')
+if (!root) throw new Error('#root element not found')
+
+createRoot(root).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+)

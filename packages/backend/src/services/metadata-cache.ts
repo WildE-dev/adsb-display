@@ -1,0 +1,144 @@
+// packages/backend/src/services/metadata-cache.ts
+
+import type { AircraftMeta, AircraftImage, AircraftState } from '@adsb-display/shared'
+import { config } from '../config.js'
+
+type MetaCallback = (meta: AircraftMeta | null, image: AircraftImage | null) => void
+
+export class MetadataCache {
+  // Permanent RAM cache — survives for process lifetime
+  private metaCache = new Map<string, AircraftMeta | null>()
+  private imageCache = new Map<string, AircraftImage | null>()
+
+  // Fetch queue — ICAOs waiting to be enriched
+  private queue: Array<{ icao: string; callback: MetaCallback }> = []
+  private activeFetches = 0
+  private drainTimer: NodeJS.Timeout | null = null
+
+  enqueue(icao: string, callback: MetaCallback): void {
+    // If already cached (even as null — meaning we tried and failed), serve immediately
+    if (this.metaCache.has(icao)) {
+      callback(this.metaCache.get(icao) ?? null, this.imageCache.get(icao) ?? null)
+      return
+    }
+
+    // Debounce: on startup we might get 50 aircraft at once. Queue them and drain
+    // after a short pause so we don't fire 50 concurrent HTTP requests.
+    this.queue.push({ icao, callback })
+
+    if (this.drainTimer) clearTimeout(this.drainTimer)
+    this.drainTimer = setTimeout(() => this.drain(), config.metaFetchDebounceMs)
+  }
+
+  private drain(): void {
+    while (
+      this.activeFetches < config.metaFetchConcurrency &&
+      this.queue.length > 0
+    ) {
+      const item = this.queue.shift()
+      if (!item) break
+      this.activeFetches++
+      void this.fetchOne(item.icao, item.callback).finally(() => {
+        this.activeFetches--
+        // Keep draining if items remain
+        if (this.queue.length > 0) this.drain()
+      })
+    }
+  }
+
+  private async fetchOne(icao: string, callback: MetaCallback): Promise<void> {
+    const [meta, image] = await Promise.all([
+      this.fetchMeta(icao),
+      this.fetchImage(icao),
+    ])
+
+    // Cache results (including null — so we don't retry failed lookups on every restart)
+    this.metaCache.set(icao, meta)
+    this.imageCache.set(icao, image)
+
+    callback(meta, image)
+  }
+
+  private async fetchMeta(icao: string): Promise<AircraftMeta | null> {
+    try {
+      const url = `https://api.adsbdb.com/v0/aircraft/${icao.toUpperCase()}`
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+
+      if (!res.ok) return null
+
+      const json = await res.json() as {
+        response?: {
+          aircraft?: {
+            registration?: string
+            type?: string
+            manufacturer?: string
+            registered_owner?: string
+            registered_owner_operator_flag_code?: string
+            registered_owner_icao_type_code?: string
+            country_iso_name?: string
+            year?: string
+          }
+        }
+      }
+
+      const a = json.response?.aircraft
+      if (!a) return null
+
+      return {
+        icao,
+        registration: a.registration ?? null,
+        typeCode: a.registered_owner_icao_type_code ?? null,
+        typeName: a.type ?? null,
+        operatorName: a.registered_owner ?? null,
+        operatorIata: a.registered_owner_operator_flag_code ?? null,
+        operatorIcao: null,
+        countryIso: a.country_iso_name ?? null,
+        built: a.year ?? null,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  private async fetchImage(icao: string): Promise<AircraftImage | null> {
+    try {
+      const url = `https://api.planespotters.net/pub/photos/hex/${icao.toUpperCase()}`
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+
+      if (!res.ok) return null
+
+      const json = await res.json() as {
+        photos?: Array<{
+          thumbnail_large?: { src?: string }
+          thumbnail?: { src?: string }
+          photographer?: string
+          license?: string
+        }>
+      }
+
+      const photo = json.photos?.[0]
+      if (!photo) return null
+
+      const url_ = photo.thumbnail_large?.src ?? photo.thumbnail?.src
+      if (!url_) return null
+
+      return {
+        url: url_,
+        thumbnailUrl: photo.thumbnail?.src ?? url_,
+        photographer: photo.photographer ?? 'Unknown',
+        license: photo.license ?? '',
+      }
+    } catch {
+      return null
+    }
+  }
+
+  stats() {
+    return {
+      cachedMeta: this.metaCache.size,
+      cachedImages: this.imageCache.size,
+      queueLength: this.queue.length,
+      activeFetches: this.activeFetches,
+    }
+  }
+}

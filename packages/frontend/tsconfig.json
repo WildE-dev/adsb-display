@@ -1,10 +1,21 @@
 {
-    "compilerOptions": {
-        "rootDir": "./src",
-        "outDir": "./dist",
-        "jsx": "react",
-    },
-    "include": [
-        "src"
-    ]
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "outDir": "./dist",
+    "noEmit": true,
+    "useDefineForClassFields": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "types": []
+  },
+  "references": [
+    { "path": "../shared" }
+  ],
+  "include": ["src"],
+  "exclude": ["dist", "node_modules"]
 }
