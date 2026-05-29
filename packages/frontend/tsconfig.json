@@ -11,7 +11,10 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": []
+    "types": [],
+    "paths": {
+      "@adsb-display/shared": ["../shared/src/index.ts"]
+    }
   },
   "references": [
     { "path": "../shared" }

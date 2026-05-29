@@ -1,8 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@adsb-display/shared': resolve(__dirname, '../shared/src/index.ts'),
+    },
+  },
   server: {
     port: 3000,
     proxy: {
@@ -14,13 +20,12 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
-    // Keep chunks reasonable for Pi's limited RAM
     rollupOptions: {
       output: {
         manualChunks: {
           maplibre: ['maplibre-gl'],
-          motion: ['motion'],
-          react: ['react', 'react-dom'],
+          framer:   ['framer-motion'],
+          react:    ['react', 'react-dom'],
         },
       },
     },
