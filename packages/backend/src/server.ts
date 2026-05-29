@@ -51,8 +51,17 @@ export async function createApp() {
 
   // In production, serve the built frontend from here
   if (process.env['NODE_ENV'] === 'production') {
-    const { default: sirv } = await import('sirv')
-    app.use(sirv('../frontend/dist', { single: true }))
+    const { existsSync } = await import('node:fs')
+    const frontendDist = new URL('../../frontend/dist', import.meta.url).pathname
+
+    if (existsSync(frontendDist)) {
+      const { default: sirv } = await import('sirv')
+      app.use(sirv(frontendDist, { single: true }))
+      console.log(`[server] Serving frontend from ${frontendDist}`)
+    } else {
+      console.warn(`[server] Frontend dist not found at ${frontendDist} — skipping static serving`)
+      console.warn('[server] Run: npm run build -w packages/frontend')
+    }
   }
 
   // --- Midnight stats reset ---
