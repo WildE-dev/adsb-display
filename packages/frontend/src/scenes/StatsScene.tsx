@@ -54,6 +54,7 @@ export function StatsScene() {
       justifyContent: 'center',
       padding: '48px 56px',
       gap: 40,
+      background: 'var(--color-bg)',
     }}>
 
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>

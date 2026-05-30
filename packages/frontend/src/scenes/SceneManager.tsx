@@ -1,26 +1,30 @@
 // packages/frontend/src/scenes/SceneManager.tsx
 import { useState, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { RadarScene } from './RadarScene'
-import { SpotlightScene } from './SpotlightScene'
-import { WeatherScene } from './WeatherScene'
-import { StatsScene } from './StatsScene'
+import { SpotlightScene } from './SpotlightScene.js'
+import { WeatherScene } from './WeatherScene.js'
+import { StatsScene } from './StatsScene.js'
 import { useAircraftStore, selectAircraftWithPosition } from '../store/aircraftStore.js'
 
-type SceneId = 'radar' | 'spotlight' | 'weather' | 'stats'
+// Radar is no longer in the rotation — it's always on as the base layer.
+// These are the overlay scenes that appear on top of it.
+type OverlaySceneId = 'spotlight' | 'weather' | 'stats'
 
-// How long each scene is displayed (ms)
-const SCENE_DURATIONS: Record<SceneId, number> = {
-  radar:     25_000,  // Radar gets the most time — it's the main view
+// null means "show the radar" — the overlay is transparent
+type ActiveScene = OverlaySceneId | null
+
+const SCENE_DURATIONS: Record<OverlaySceneId, number> = {
   spotlight: 15_000,
   weather:   12_000,
   stats:     10_000,
 }
 
-const SCENE_ORDER: SceneId[] = ['radar', 'spotlight', 'weather', 'stats']
+// How long to show the raw radar between overlay scenes
+const RADAR_DURATION = 25_000
 
-// Cinematic cross-fade with a slight upward drift
-const sceneVariants = {
+const OVERLAY_ORDER: OverlaySceneId[] = ['spotlight', 'weather', 'stats']
+
+const overlayVariants = {
   enter: {
     opacity: 0,
     scale: 1.015,
@@ -38,53 +42,74 @@ const sceneVariants = {
 }
 
 export function SceneManager() {
-  const [sceneIndex, setSceneIndex] = useState(0)
+  // null = radar showing (no overlay), otherwise the overlay scene id
+  const [active, setActive] = useState<ActiveScene>(null)
+  const [overlayIndex, setOverlayIndex] = useState(0)
+
   const aircraft = useAircraftStore(selectAircraftWithPosition)
 
-  const currentScene = SCENE_ORDER[sceneIndex] as SceneId
-
   const advance = useCallback(() => {
-    setSceneIndex(i => (i + 1) % SCENE_ORDER.length)
-  }, [])
+    setActive(current => {
+      if (current === null) {
+        // Radar just finished — show next overlay
+        const next = OVERLAY_ORDER[overlayIndex] as OverlaySceneId
+        // Skip spotlight if no aircraft
+        if (next === 'spotlight' && aircraft.length === 0) {
+          setOverlayIndex(i => (i + 1) % OVERLAY_ORDER.length)
+          return 'weather'
+        }
+        return next
+      } else {
+        // Overlay just finished — advance overlay index and show radar
+        setOverlayIndex(i => (i + 1) % OVERLAY_ORDER.length)
+        return null
+      }
+    })
+  }, [overlayIndex, aircraft.length])
 
   useEffect(() => {
-    // Skip spotlight if there are no aircraft to show
-    const scene = SCENE_ORDER[sceneIndex] as SceneId
-    if (scene === 'spotlight' && aircraft.length === 0) {
-      advance()
-      return
-    }
+    const duration = active === null
+      ? RADAR_DURATION
+      : SCENE_DURATIONS[active]
 
-    const duration = SCENE_DURATIONS[scene]
     const timer = setTimeout(advance, duration)
     return () => clearTimeout(timer)
-  }, [sceneIndex, aircraft.length, advance])
+  }, [active, advance])
 
   return (
-    <div className="scene-container">
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <AnimatePresence mode="wait">
-        <motion.div
-          key={currentScene}
-          className="scene-container"
-          variants={sceneVariants}
-          initial="enter"
-          animate="visible"
-          exit="exit"
-        >
-          {currentScene === 'radar'     && <RadarScene />}
-          {currentScene === 'spotlight' && <SpotlightScene />}
-          {currentScene === 'weather'   && <WeatherScene />}
-          {currentScene === 'stats'     && <StatsScene />}
-        </motion.div>
+        {active !== null && (
+          <motion.div
+            key={active}
+            style={{ position: 'absolute', inset: 0 }}
+            variants={overlayVariants}
+            initial="enter"
+            animate="visible"
+            exit="exit"
+          >
+            {active === 'spotlight' && <SpotlightScene />}
+            {active === 'weather'   && <WeatherScene />}
+            {active === 'stats'     && <StatsScene />}
+          </motion.div>
+        )}
       </AnimatePresence>
 
-      {/* Scene indicator dots — subtle, bottom center */}
-      <SceneIndicator current={currentScene} />
+      {/* Scene indicator — always visible */}
+      <SceneIndicator active={active} />
     </div>
   )
 }
 
-function SceneIndicator({ current }: { current: SceneId }) {
+function SceneIndicator({ active }: { active: ActiveScene }) {
+  // radar dot + one dot per overlay
+  const dots: Array<{ id: string; label: string }> = [
+    { id: 'radar', label: 'Radar' },
+    ...OVERLAY_ORDER.map(id => ({ id, label: id })),
+  ]
+
+  const currentId = active ?? 'radar'
+
   return (
     <div style={{
       position: 'absolute',
@@ -95,19 +120,19 @@ function SceneIndicator({ current }: { current: SceneId }) {
       gap: 8,
       zIndex: 100,
     }}>
-      {SCENE_ORDER.map(id => (
+      {dots.map(({ id }) => (
         <div
           key={id}
           style={{
-            width: id === current ? 24 : 6,
-            height: 6,
+            width:        id === currentId ? 24 : 6,
+            height:       6,
             borderRadius: 3,
-            background: id === current
+            background:   id === currentId
               ? 'var(--color-accent)'
               : 'var(--color-text-muted)',
-            opacity: id === current ? 1 : 0.4,
+            opacity:    id === currentId ? 1 : 0.4,
             transition: 'all 0.4s ease',
-            boxShadow: id === current
+            boxShadow:  id === currentId
               ? '0 0 8px var(--color-accent-glow)'
               : 'none',
           }}

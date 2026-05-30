@@ -29,6 +29,7 @@ export function WeatherScene() {
       gridTemplateRows: 'auto 1fr',
       padding: '48px 56px',
       gap: 32,
+      background: 'var(--color-bg)',
     }}>
 
       {/* Top row: current conditions */}
