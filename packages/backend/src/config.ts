@@ -1,32 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
-
-const envFile = '.env'
-
-const envPath = resolve(__dirname, '..', envFile)
-if (existsSync(envPath)) {
-  const envData = readFileSync(envPath, 'utf8')
-  for (const line of envData.split(/\r?\n/)) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-
-    const equalsIndex = trimmed.indexOf('=')
-    if (equalsIndex === -1) continue
-
-    const key = trimmed.slice(0, equalsIndex).trim()
-    const value = trimmed.slice(equalsIndex + 1)
-
-    if (key && process.env[key] === undefined) {
-      process.env[key] = value
-    }
-  }
-} else {
-  console.log(`[config] File not found: ${envPath}, skipping .env loading`)
-}
-
 export const config = {
   receiverLat:          Number(process.env['RECEIVER_LAT'] ?? '51.5'),
   receiverLon:          Number(process.env['RECEIVER_LON'] ?? '-0.12'),
