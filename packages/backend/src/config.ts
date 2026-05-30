@@ -4,11 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
-// Load .env.production or .env depending on NODE_ENV
-// Runs before any config values are read
-const envFile = process.env['NODE_ENV'] === 'production'
-  ? '.env.production'
-  : '.env'
+const envFile = '.env'
 
 const envPath = resolve(__dirname, '..', envFile)
 if (existsSync(envPath)) {
