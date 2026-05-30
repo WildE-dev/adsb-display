@@ -1,10 +1,12 @@
 // packages/frontend/src/scenes/RadarScene.tsx
+
 import { useRef, useEffect, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
-// @ts-ignore - No types for MapLibre's CSS, but we need to import it for the map to display
+// @ts-ignore (no types for maplibre-gl-geocoder yet)
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAircraftStore } from '../store/aircraftStore.js'
 import { useInterpolation, type InterpolatedPosition } from '../hooks/useInterpolation.js'
+import { useFitBounds } from '../hooks/useFitBounds.js'
 import { altitudeColor } from '../lib/format.js'
 
 const AIRCRAFT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
@@ -21,13 +23,13 @@ export function RadarScene() {
   const mapRef       = useRef<maplibregl.Map | null>(null)
   const mapReadyRef  = useRef(false)
 
-  // Store aircraft count separately for the overlay label —
-  // this is the only thing that causes a React re-render
-  const aircraftCountRef = useRef(0)
+  // Keep latest interpolated positions in a ref so useFitBounds
+  // can read them without needing to be inside the rAF loop
+  const positionsRef = useRef<InterpolatedPosition[]>([])
 
   const { receiverLat, receiverLon } = useAircraftStore()
 
-  // --- Map initialisation (runs once) ---
+  // --- Map initialisation (unchanged) ---
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return
 
@@ -57,7 +59,6 @@ export function RadarScene() {
         map.addImage('aircraft-icon', img, { sdf: true })
         addAircraftLayers(map)
         addReceiverMarker(map, receiverLat, receiverLon)
-        // Signal that the map is ready to receive data
         mapReadyRef.current = true
       }
       img.src = svgToDataUri(AIRCRAFT_SVG)
@@ -72,17 +73,18 @@ export function RadarScene() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // --- Interpolation loop — updates map at 60fps, zero React re-renders ---
+  // --- Interpolation loop (60fps map updates) ---
   const onFrame = useCallback((positions: InterpolatedPosition[]) => {
     const map = mapRef.current
     if (!map || !mapReadyRef.current) return
 
+    // Keep ref fresh for useFitBounds
+    positionsRef.current = positions
+
     const aircraftSource = map.getSource('aircraft') as maplibregl.GeoJSONSource | undefined
     const trailSource    = map.getSource('aircraft-trails') as maplibregl.GeoJSONSource | undefined
-
     if (!aircraftSource || !trailSource) return
 
-    // Update aircraft icon positions
     aircraftSource.setData({
       type: 'FeatureCollection',
       features: positions.map(a => ({
@@ -97,16 +99,12 @@ export function RadarScene() {
       })),
     })
 
-    // Update trail lines using historical positions
-    // We extend the last segment to the dead-reckoned tip so the trail
-    // visually connects to the icon's interpolated position
     trailSource.setData({
       type: 'FeatureCollection',
       features: positions
         .filter(a => a.positionHistory.length > 1)
         .map(a => {
           const coords = a.positionHistory.map(p => [p.lon, p.lat])
-          // Append the dead-reckoned tip so the trail reaches the icon
           coords.push([a.lon, a.lat])
           return {
             type: 'Feature',
@@ -115,11 +113,21 @@ export function RadarScene() {
           }
         }),
     })
-
-    aircraftCountRef.current = positions.length
   }, [])
 
   useInterpolation(onFrame)
+
+  // --- Auto-fit bounds every 15s ---
+  // Stable callback — reads from ref so it never causes the hook to restart
+  const getPositions = useCallback(() => positionsRef.current, [])
+
+  useFitBounds(mapRef, mapReadyRef, getPositions, receiverLat, receiverLon, {
+    intervalMs:  15_000,
+    padding:     80,
+    animationMs: 2_000,
+    minZoom:     6,
+    maxZoom:     10,
+  })
 
   return (
     <div className="scene-container">
@@ -133,8 +141,9 @@ export function RadarScene() {
         textTransform: 'uppercase',
         opacity: 0.8,
       }}>
-        {/* This label re-renders via React only when count changes */}
-        <AircraftCountLabel countRef={aircraftCountRef} />
+        <div className="glow-green">
+          {positionsRef.current.length} aircraft
+        </div>
       </div>
 
       <div style={{
@@ -150,21 +159,12 @@ export function RadarScene() {
   )
 }
 
-// Separate component so only this re-renders when count changes, not the whole scene
-function AircraftCountLabel({ countRef }: { countRef: React.RefObject<number> }) {
-  return (
-    <div className="glow-green">
-      {countRef.current ?? 0} aircraft
-    </div>
-  )
-}
-
 function AltitudeLegend() {
   const bands = [
-    { label: '> FL400',    color: 'var(--color-alt-vhigh)' },
-    { label: 'FL200–400',  color: 'var(--color-alt-high)'  },
-    { label: 'FL050–200',  color: 'var(--color-alt-mid)'   },
-    { label: '< FL050',    color: 'var(--color-alt-low)'   },
+    { label: '> FL400',   color: 'var(--color-alt-vhigh)' },
+    { label: 'FL200–400', color: 'var(--color-alt-high)'  },
+    { label: 'FL050–200', color: 'var(--color-alt-mid)'   },
+    { label: '< FL050',   color: 'var(--color-alt-low)'   },
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -178,34 +178,22 @@ function AltitudeLegend() {
   )
 }
 
-// --- MapLibre helpers (unchanged from original) ---
-
+// All MapLibre helper functions unchanged from before
 function addAircraftLayers(map: maplibregl.Map): void {
   map.addSource('aircraft-trails', {
     type: 'geojson',
     data: { type: 'FeatureCollection', features: [] },
   })
-
   map.addSource('aircraft', {
     type: 'geojson',
     data: { type: 'FeatureCollection', features: [] },
   })
-
   map.addLayer({
-    id: 'aircraft-trails',
-    type: 'line',
-    source: 'aircraft-trails',
-    paint: {
-      'line-color': 'rgba(0, 255, 136, 0.25)',
-      'line-width': 1,
-      'line-blur': 0.5,
-    },
+    id: 'aircraft-trails', type: 'line', source: 'aircraft-trails',
+    paint: { 'line-color': 'rgba(0, 255, 136, 0.25)', 'line-width': 1, 'line-blur': 0.5 },
   })
-
   map.addLayer({
-    id: 'aircraft-dots',
-    type: 'circle',
-    source: 'aircraft',
+    id: 'aircraft-dots', type: 'circle', source: 'aircraft',
     paint: {
       'circle-radius': 4,
       'circle-color': ['get', 'color'],
@@ -213,11 +201,8 @@ function addAircraftLayers(map: maplibregl.Map): void {
       'circle-stroke-color': 'rgba(255,255,255,0.3)',
     },
   })
-
   map.addLayer({
-    id: 'aircraft-icons',
-    type: 'symbol',
-    source: 'aircraft',
+    id: 'aircraft-icons', type: 'symbol', source: 'aircraft',
     layout: {
       'icon-image': 'aircraft-icon',
       'icon-size': 0.65,
@@ -231,12 +216,8 @@ function addAircraftLayers(map: maplibregl.Map): void {
       'icon-halo-width': 1,
     },
   })
-
   map.addLayer({
-    id: 'aircraft-labels',
-    type: 'symbol',
-    source: 'aircraft',
-    minzoom: 7,
+    id: 'aircraft-labels', type: 'symbol', source: 'aircraft', minzoom: 7,
     layout: {
       'text-field': ['get', 'flight'],
       'text-font': ['Noto Sans Regular'],
@@ -256,17 +237,10 @@ function addAircraftLayers(map: maplibregl.Map): void {
 function addReceiverMarker(map: maplibregl.Map, lat: number, lon: number): void {
   map.addSource('receiver', {
     type: 'geojson',
-    data: {
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [lon, lat] },
-      properties: {},
-    },
+    data: { type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: {} },
   })
-
   map.addLayer({
-    id: 'receiver-dot',
-    type: 'circle',
-    source: 'receiver',
+    id: 'receiver-dot', type: 'circle', source: 'receiver',
     paint: {
       'circle-radius': 6,
       'circle-color': 'var(--color-accent)',
@@ -283,8 +257,7 @@ function buildDarkStyle(): maplibregl.LayerSpecification[] {
     { id: 'land',        type: 'fill', source: 'protomaps', 'source-layer': 'earth',       paint: { 'fill-color': '#0d1826' } },
     { id: 'landuse',     type: 'fill', source: 'protomaps', 'source-layer': 'landuse',     paint: { 'fill-color': '#0e1c2e', 'fill-opacity': 0.5 } },
     { id: 'roads-minor', type: 'line', source: 'protomaps', 'source-layer': 'roads',       paint: { 'line-color': '#122030', 'line-width': 0.5 } },
-    { id: 'roads-major', type: 'line', source: 'protomaps', 'source-layer': 'roads',       paint: { 'line-color': '#1a3050', 'line-width': 1 },
-      filter: ['>=', ['get', 'kind_detail'], 3] },
+    { id: 'roads-major', type: 'line', source: 'protomaps', 'source-layer': 'roads',       paint: { 'line-color': '#1a3050', 'line-width': 1 }, filter: ['>=', ['get', 'kind_detail'], 3] },
     { id: 'boundaries',  type: 'line', source: 'protomaps', 'source-layer': 'boundaries', paint: { 'line-color': '#1d3a5a', 'line-width': 0.5, 'line-dasharray': [3, 3] } },
     { id: 'places',      type: 'symbol', source: 'protomaps', 'source-layer': 'places', minzoom: 5,
       layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 11 },
