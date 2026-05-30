@@ -51,6 +51,7 @@ export function RadarScene() {
       zoom: 8,
       interactive: false,
       attributionControl: false,
+      preserveDrawingBuffer: true,
     })
 
     map.on('load', () => {
