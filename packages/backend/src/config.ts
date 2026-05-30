@@ -1,7 +1,7 @@
 export const config = {
   receiverLat:          Number(process.env['RECEIVER_LAT'] ?? '51.5'),
   receiverLon:          Number(process.env['RECEIVER_LON'] ?? '-0.12'),
-  adsbJsonPath:         process.env['ADSB_JSON_PATH'] ?? '/run/readsb/aircraft.json',
+  adsbJsonPath:         process.env['ADSB_JSON_PATH'] ?? './aircraft.json',
   pollIntervalMs:       1000,
   aircraftTimeoutSec:   60,
   maxPositionHistory:   120,

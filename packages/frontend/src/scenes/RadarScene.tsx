@@ -40,7 +40,7 @@ export function RadarScene() {
         sources: {
           protomaps: {
             type: 'vector',
-            url: 'https://api.protomaps.com/tiles/v3.json?key=REPLACE_WITH_KEY',
+            url: 'https://api.protomaps.com/tiles/v3.json?key=d02babd5bdd563d0',
             attribution: '© Protomaps, © OpenStreetMap',
           },
         },
