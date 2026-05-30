@@ -23,6 +23,8 @@ if (existsSync(envPath)) {
       process.env[key] = value
     }
   }
+} else {
+  console.log(`[config] File not found: ${envPath}, skipping .env loading`)
 }
 
 export const config = {
