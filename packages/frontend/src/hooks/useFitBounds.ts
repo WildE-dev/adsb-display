@@ -24,10 +24,10 @@ export function useFitBounds(
   options: UseFitBoundsOptions = {}
 ): void {
   const {
-    intervalMs  = 15_000,
-    padding     = 80,
+    intervalMs = 15_000,
+    padding = 80,
     animationMs = 2000,
-    minZoom     = 6,
+    minZoom = 6,
   } = options
 
   // Track last known aircraft count so we can re-fit immediately
@@ -39,7 +39,13 @@ export function useFitBounds(
       const map = mapRef.current
       if (!map || !mapReadyRef.current) return
 
-      const positions = getPositions()
+      const positions = getPositions().filter(
+        p =>
+          Number.isFinite(p.lat) &&
+          Number.isFinite(p.lon) &&
+          p.lat !== 0 &&
+          p.lon !== 0
+      )
 
       // Always include the receiver location so it's never off-screen
       const lats = [receiverLat, ...positions.map(p => p.lat)]
@@ -82,5 +88,5 @@ export function useFitBounds(
       clearInterval(intervalTimer)
     }
   }, [mapRef, mapReadyRef, getPositions, receiverLat, receiverLon,
-      intervalMs, padding, animationMs, minZoom])
+    intervalMs, padding, animationMs, minZoom])
 }
