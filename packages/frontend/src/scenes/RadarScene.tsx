@@ -127,7 +127,6 @@ export function RadarScene() {
     padding:     80,
     animationMs: 2_000,
     minZoom:     6,
-    maxZoom:     10,
   })
 
   return (

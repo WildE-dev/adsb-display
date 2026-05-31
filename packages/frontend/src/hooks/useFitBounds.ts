@@ -13,8 +13,6 @@ interface UseFitBoundsOptions {
   animationMs?: number
   // Don't zoom in closer than this level (prevents over-zoom with 1-2 aircraft)
   minZoom?: number
-  // Don't zoom out further than this level (prevents seeing the whole world)
-  maxZoom?: number
 }
 
 export function useFitBounds(
@@ -30,7 +28,6 @@ export function useFitBounds(
     padding     = 80,
     animationMs = 2000,
     minZoom     = 6,
-    maxZoom     = 10,
   } = options
 
   // Track last known aircraft count so we can re-fit immediately
@@ -62,7 +59,6 @@ export function useFitBounds(
         [[minLon, minLat], [maxLon, maxLat]],
         {
           padding,
-          maxZoom,
           minZoom,
           duration: animate ? animationMs : 0,
           // Cubic ease-in-out — feels like a camera pan
@@ -86,5 +82,5 @@ export function useFitBounds(
       clearInterval(intervalTimer)
     }
   }, [mapRef, mapReadyRef, getPositions, receiverLat, receiverLon,
-      intervalMs, padding, animationMs, minZoom, maxZoom])
+      intervalMs, padding, animationMs, minZoom])
 }
