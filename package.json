@@ -5,7 +5,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n backend,frontend -c cyan,magenta \"npm run dev -w packages/backend\" \"npm run dev -w packages/frontend\"",
+    "dev": "concurrently -n backend,frontend,adsb -c cyan,magenta,yellow \"npm run dev -w packages/backend\" \"npm run dev -w packages/frontend\" \"node --env-file=./packages/backend/.env fake-adsb.js\"",
     "build": "npm run build -w packages/shared && npm run build -w packages/backend && npm run build -w packages/frontend",
     "build:shared": "npm run build -w packages/shared"
   },
