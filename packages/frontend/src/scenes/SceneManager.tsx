@@ -1,5 +1,5 @@
 // packages/frontend/src/scenes/SceneManager.tsx
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { SpotlightScene } from './SpotlightScene.js'
 import { WeatherScene } from './WeatherScene.js'
@@ -45,8 +45,10 @@ export function SceneManager() {
   // null = radar showing (no overlay), otherwise the overlay scene id
   const [active, setActive] = useState<ActiveScene>(null)
   const [overlayIndex, setOverlayIndex] = useState(0)
+  const prevActiveRef = useRef<ActiveScene>(null)
 
   const aircraft = useAircraftStore(selectAircraftWithPosition)
+  const setZoomToIcao = useAircraftStore(s => s.setZoomToIcao)
 
   const advance = useCallback(() => {
     setActive(current => {
@@ -75,6 +77,15 @@ export function SceneManager() {
     const timer = setTimeout(advance, duration)
     return () => clearTimeout(timer)
   }, [active, advance])
+
+  // When spotlight finishes and radar becomes visible, zoom to that aircraft
+  useEffect(() => {
+    if (prevActiveRef.current === 'spotlight' && active === null) {
+      const icao = useAircraftStore.getState().spotlightIcao
+      if (icao) setZoomToIcao(icao)
+    }
+    prevActiveRef.current = active
+  }, [active, setZoomToIcao])
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>

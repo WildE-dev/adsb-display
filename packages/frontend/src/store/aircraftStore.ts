@@ -6,19 +6,24 @@ interface AircraftStore {
   aircraft: Map<string, AircraftState>
   receiverLat: number
   receiverLon: number
+  // ICAO of the aircraft currently shown in the spotlight card
+  spotlightIcao: string | null
+  // Set by SceneManager when spotlight→radar transition fires; RadarScene zooms then clears it
+  zoomToIcao: string | null
 
-  // Called by useSocket on snapshot event
   setSnapshot: (aircraft: AircraftState[], lat: number, lon: number) => void
-  // Called by useSocket on diff event
   applyDiff: (updated: AircraftState[], removed: string[]) => void
-  // Called by interpolation loop to update rendered positions
   setAircraftPosition: (icao: string, lat: number, lon: number, trackDeg: number) => void
+  setSpotlightIcao: (icao: string | null) => void
+  setZoomToIcao: (icao: string | null) => void
 }
 
 export const useAircraftStore = create<AircraftStore>((set, get) => ({
   aircraft: new Map(),
   receiverLat: 0,
   receiverLon: 0,
+  spotlightIcao: null,
+  zoomToIcao: null,
 
   setSnapshot: (aircraftList, lat, lon) => {
     const map = new Map<string, AircraftState>()
@@ -44,6 +49,9 @@ export const useAircraftStore = create<AircraftStore>((set, get) => ({
       return { aircraft: next }
     })
   },
+
+  setSpotlightIcao: (icao) => set({ spotlightIcao: icao }),
+  setZoomToIcao:    (icao) => set({ zoomToIcao: icao }),
 }))
 
 // Selector helpers — memoized slices to prevent unnecessary re-renders

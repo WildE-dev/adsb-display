@@ -27,7 +27,7 @@ export function RadarScene() {
   // can read them without needing to be inside the rAF loop
   const positionsRef = useRef<InterpolatedPosition[]>([])
 
-  const { receiverLat, receiverLon } = useAircraftStore()
+  const { receiverLat, receiverLon, zoomToIcao, setZoomToIcao } = useAircraftStore()
 
   // --- Map initialisation (unchanged) ---
   useEffect(() => {
@@ -117,6 +117,29 @@ export function RadarScene() {
   }, [])
 
   useInterpolation(onFrame)
+
+  // --- Zoom to spotlight aircraft when returning from the info card ---
+  useEffect(() => {
+    if (!zoomToIcao) return
+    // Small delay so the spotlight overlay finishes its exit animation before we pan
+    const timer = setTimeout(() => {
+      const map = mapRef.current
+      if (!map || !mapReadyRef.current) return
+      const pos = positionsRef.current.find(p => p.icao === zoomToIcao)
+      if (pos) {
+        map.easeTo({
+          center: [pos.lon, pos.lat],
+          zoom: 10,
+          duration: 2500,
+          easing: (t: number) => t < 0.5
+            ? 4 * t * t * t
+            : 1 - Math.pow(-2 * t + 2, 3) / 2,
+        })
+      }
+      setZoomToIcao(null)
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [zoomToIcao, setZoomToIcao])
 
   // --- Auto-fit bounds every 15s ---
   // Stable callback — reads from ref so it never causes the hook to restart

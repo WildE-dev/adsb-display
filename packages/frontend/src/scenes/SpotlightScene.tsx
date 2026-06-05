@@ -1,5 +1,5 @@
 // packages/frontend/src/scenes/SpotlightScene.tsx
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useAircraftStore, selectAircraftWithPosition } from '../store/aircraftStore.js'
 import { selectSpotlightAircraft } from '../lib/aircraftSelector.js'
@@ -15,7 +15,7 @@ const fieldAnim = {
 
 export function SpotlightScene() {
   const aircraft = useAircraftStore(selectAircraftWithPosition)
-  const { receiverLat, receiverLon } = useAircraftStore()
+  const { receiverLat, receiverLon, setSpotlightIcao } = useAircraftStore()
 
   const subject = useMemo(
     () => selectSpotlightAircraft(aircraft, receiverLat, receiverLon),
@@ -23,6 +23,10 @@ export function SpotlightScene() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [aircraft.length, receiverLat, receiverLon]
   )
+
+  useEffect(() => {
+    if (subject) setSpotlightIcao(subject.icao)
+  }, [subject?.icao, setSpotlightIcao])
 
   if (!subject) return null
 
