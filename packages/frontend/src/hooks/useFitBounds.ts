@@ -30,10 +30,6 @@ export function useFitBounds(
     minZoom = 6,
   } = options
 
-  // Track last known aircraft count so we can re-fit immediately
-  // when a large number of aircraft appear or disappear
-  const lastCountRef = useRef(0)
-
   useEffect(() => {
     const fit = (animate: boolean) => {
       const map = mapRef.current
@@ -72,6 +68,7 @@ export function useFitBounds(
       const canvas = map.getCanvas()
       const availW = canvas.width / devicePixelRatio - padding * 2
       const availH = canvas.height / devicePixelRatio - padding * 2
+      if (availW <= 0 || availH <= 0) return
 
       const centerLat = (minLat + maxLat) / 2
       const centerLon = (minLon + maxLon) / 2
@@ -95,8 +92,6 @@ export function useFitBounds(
           ? 4 * t * t * t
           : 1 - Math.pow(-2 * t + 2, 3) / 2,
       })
-
-      lastCountRef.current = positions.length
     }
 
     // Fit immediately on mount (no animation — map just loaded)

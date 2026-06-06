@@ -54,7 +54,7 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
           furthestCallsign = a.flight ?? a.icao
         }
       }
-      furthestKm = Math.round(maxDist)
+      if (maxDist > 0) furthestKm = Math.round(maxDist)
     }
 
     return {
