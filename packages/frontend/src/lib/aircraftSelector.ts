@@ -8,7 +8,7 @@ export function selectSpotlightAircraft(
   receiverLon: number
 ): AircraftState | null {
   const candidates = aircraft.filter(
-    a => a.lat !== null && a.lon !== null && !a.onGround
+    a => a.lat !== null && a.lon !== null
   )
 
   if (candidates.length === 0) return null

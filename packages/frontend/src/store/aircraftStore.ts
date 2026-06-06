@@ -60,5 +60,5 @@ export const selectAircraftList = (s: AircraftStore) =>
 
 export const selectAircraftWithPosition = (s: AircraftStore) =>
   Array.from(s.aircraft.values()).filter(
-    a => a.lat !== null && a.lon !== null && !a.onGround
+    a => a.lat !== null && a.lon !== null
   )

@@ -36,7 +36,6 @@ export interface AircraftState {
   lat: number | null
   lon: number | null
   altitudeFt: number | null
-  onGround: boolean
   groundSpeedKts: number | null
   trackDeg: number | null
   verticalRateFpm: number | null

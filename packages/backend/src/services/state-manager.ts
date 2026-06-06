@@ -141,9 +141,9 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
   }
 
   private createState(raw: ReadsbAircraft, now: number): AircraftState {
-    const altitudeFt = raw.alt_baro === 'ground'
-      ? 0
-      : (raw.alt_baro ?? raw.alt_geom ?? null)
+    const altitudeFt = typeof raw.alt_baro === 'number'
+      ? raw.alt_baro
+      : (raw.alt_geom ?? null)
 
     const state: AircraftState = {
       icao: raw.hex.toLowerCase(),
@@ -154,7 +154,6 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
       lat: raw.lat ?? null,
       lon: raw.lon ?? null,
       altitudeFt,
-      onGround: raw.alt_baro === 'ground',
       groundSpeedKts: raw.gs ?? null,
       trackDeg: raw.track ?? null,
       verticalRateFpm: raw.baro_rate ?? null,
@@ -191,10 +190,9 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
     state.messageCount = raw.messages
     state.rssi = raw.rssi
 
-    state.altitudeFt = raw.alt_baro === 'ground'
-      ? 0
-      : (raw.alt_baro ?? raw.alt_geom ?? state.altitudeFt)
-    state.onGround = raw.alt_baro === 'ground'
+    state.altitudeFt = typeof raw.alt_baro === 'number'
+      ? raw.alt_baro
+      : (raw.alt_geom ?? state.altitudeFt)
     state.groundSpeedKts = raw.gs ?? state.groundSpeedKts
     state.trackDeg = raw.track ?? state.trackDeg
     state.verticalRateFpm = raw.baro_rate ?? state.verticalRateFpm

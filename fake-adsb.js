@@ -45,9 +45,7 @@ function randHex(len) {
 
 // Generate initial aircraft states
 const aircraft = Array.from({ length: COUNT }, (_, i) => {
-  const isGround = Math.random() < 0.08
-  const alt = isGround ? 'ground' : randInt(1000, 42000)
-  const gs = isGround ? randBetween(0, 30) : randBetween(150, 550)
+  const alt = randInt(1000, 42000)
   const track = randBetween(0, 360)
   const trackRad = (track * Math.PI) / 180
 
@@ -61,10 +59,10 @@ const aircraft = Array.from({ length: COUNT }, (_, i) => {
     lat: RECEIVER_LAT + randBetween(-spreadDeg, spreadDeg),
     lon: RECEIVER_LON + randBetween(-spreadDeg, spreadDeg),
     alt_baro: alt,
-    alt_geom: isGround ? 0 : (typeof alt === 'number' ? alt + randInt(-100, 100) : 0),
-    gs,
+    alt_geom: alt + randInt(-100, 100),
+    gs: randBetween(150, 550),
     track,
-    baro_rate: isGround ? 0 : randInt(-2000, 2000),
+    baro_rate: randInt(-2000, 2000),
     squawk: String(randInt(1000, 7777)).padStart(4, '0'),
     category: CATEGORIES[randInt(0, CATEGORIES.length)],
     seen: randBetween(0, 5),
@@ -73,7 +71,6 @@ const aircraft = Array.from({ length: COUNT }, (_, i) => {
     rssi: randBetween(-30, -5),
     // Internal state (not in readsb schema but tracked for movement)
     _trackRad: trackRad,
-    _isGround: isGround,
   }
 })
 
@@ -81,50 +78,32 @@ function moveAircraft(ac) {
   const now = Date.now() / 1000
   const dtSec = INTERVAL_MS / 1000
 
-  if (ac._isGround) {
-    // Slow taxi movement
-    const speed = typeof ac.gs === 'number' ? ac.gs : 0
-    const distNm = speed * (dtSec / 3600)
-    const distDeg = distNm / 60
-    const cosLat = Math.cos(ac.lat * Math.PI / 180)
-    ac.lat += Math.cos(ac._trackRad) * distDeg
-    ac.lon += Math.sin(ac._trackRad) * distDeg / cosLat
+  const gs = typeof ac.gs === 'number' ? ac.gs : 300
+  const distNm = gs * (dtSec / 3600)
+  const distDeg = distNm / 60
+  const cosLat = Math.cos(ac.lat * Math.PI / 180)
+  ac.lat += Math.cos(ac._trackRad) * distDeg
+  ac.lon += Math.sin(ac._trackRad) * distDeg / cosLat
 
-    // Occasional turn
-    if (Math.random() < 0.1) {
-      ac.track = (ac.track + randBetween(-30, 30) + 360) % 360
-      ac._trackRad = (ac.track * Math.PI) / 180
-    }
-  } else {
-    const gs = typeof ac.gs === 'number' ? ac.gs : 300
-    const distNm = gs * (dtSec / 3600)
-    const distDeg = distNm / 60
-    const cosLat = Math.cos(ac.lat * Math.PI / 180)
-    ac.lat += Math.cos(ac._trackRad) * distDeg
-    ac.lon += Math.sin(ac._trackRad) * distDeg / cosLat
+  // Gentle track drift
+  ac.track = (ac.track + randBetween(-1, 1) + 360) % 360
+  ac._trackRad = (ac.track * Math.PI) / 180
 
-    // Gentle track drift
-    ac.track = (ac.track + randBetween(-1, 1) + 360) % 360
+  // Altitude change via baro_rate
+  ac.alt_baro = Math.max(500, ac.alt_baro + ac.baro_rate * (dtSec / 60))
+  ac.alt_geom = ac.alt_baro + randInt(-100, 100)
+  // Level off near cruise
+  if (ac.alt_baro > 38000) ac.baro_rate = Math.max(-500, ac.baro_rate - 100)
+  if (ac.alt_baro < 2000)  ac.baro_rate = Math.min(500,  ac.baro_rate + 100)
+
+  // Wrap aircraft back if they drift too far (> 3 degrees)
+  const dLat = ac.lat - RECEIVER_LAT
+  const dLon = ac.lon - RECEIVER_LON
+  if (Math.abs(dLat) > 3 || Math.abs(dLon) > 3) {
+    ac.lat = RECEIVER_LAT + randBetween(-1.5, 1.5)
+    ac.lon = RECEIVER_LON + randBetween(-1.5, 1.5)
+    ac.track = randBetween(0, 360)
     ac._trackRad = (ac.track * Math.PI) / 180
-
-    // Altitude change via baro_rate
-    if (typeof ac.alt_baro === 'number') {
-      ac.alt_baro = Math.max(500, ac.alt_baro + ac.baro_rate * (dtSec / 60))
-      ac.alt_geom = ac.alt_baro + randInt(-100, 100)
-      // Level off near cruise
-      if (ac.alt_baro > 38000) ac.baro_rate = Math.max(-500, ac.baro_rate - 100)
-      if (ac.alt_baro < 2000) ac.baro_rate = Math.min(500, ac.baro_rate + 100)
-    }
-
-    // Wrap aircraft back if they drift too far (> 3 degrees)
-    const dLat = ac.lat - RECEIVER_LAT
-    const dLon = ac.lon - RECEIVER_LON
-    if (Math.abs(dLat) > 3 || Math.abs(dLon) > 3) {
-      ac.lat = RECEIVER_LAT + randBetween(-1.5, 1.5)
-      ac.lon = RECEIVER_LON + randBetween(-1.5, 1.5)
-      ac.track = randBetween(0, 360)
-      ac._trackRad = (ac.track * Math.PI) / 180
-    }
   }
 
   ac.seen = randBetween(0, 2)
@@ -138,7 +117,7 @@ async function writeFakeJson() {
   const snapshot = {
     now,
     messages: aircraft.reduce((sum, ac) => sum + ac.messages, 0),
-    aircraft: aircraft.map(({ _trackRad, _isGround, ...rest }) => rest),
+    aircraft: aircraft.map(({ _trackRad, ...rest }) => rest),
   }
   await writeFile(OUTPUT, JSON.stringify(snapshot, null, 2))
 }

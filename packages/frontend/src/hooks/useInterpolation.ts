@@ -38,22 +38,6 @@ export function useInterpolation(
         // Skip aircraft without a valid position fix
         if (a.lat === null || a.lon === null) continue
 
-        // Don't dead-reckon ground traffic — they stop, turn, taxi unpredictably
-        if (a.onGround) {
-          positions.push({
-            icao:            a.icao,
-            lat:             a.lat,
-            lon:             a.lon,
-            trackDeg:        a.trackDeg ?? 0,
-            altitudeFt:      a.altitudeFt,
-            groundSpeedKts:  a.groundSpeedKts,
-            flight:          a.flight,
-            positionHistory: a.positionHistory,
-            lastPositionAt:  a.lastPositionAt,
-          })
-          continue
-        }
-
         // Reckon from the last position fix, not the last message — avoids
         // snapping backwards when a non-position message (e.g. ADS-B velocity)
         // advances lastSeenAt without updating lat/lon.

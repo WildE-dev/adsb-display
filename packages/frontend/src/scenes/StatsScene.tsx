@@ -8,15 +8,14 @@ export function StatsScene() {
   const stats = useStatsStore(s => s.stats)
   const aircraft = useAircraftStore(selectAircraftList)
 
-  const onGround = aircraft.filter(a => a.onGround).length
-  const airborne = aircraft.filter(a => !a.onGround && a.lat !== null).length
-  const withMeta  = aircraft.filter(a => a.meta !== null).length
+  const withPosition = aircraft.filter(a => a.lat !== null).length
+  const withMeta     = aircraft.filter(a => a.meta !== null).length
 
   const statCards = [
     {
       label: 'Tracked now',
       value: String(stats?.trackedNow ?? aircraft.length),
-      sub: `${airborne} airborne · ${onGround} ground`,
+      sub: `${withPosition} with position fix`,
       accent: true,
     },
     {
