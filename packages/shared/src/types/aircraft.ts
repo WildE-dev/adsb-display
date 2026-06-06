@@ -44,6 +44,7 @@ export interface AircraftState {
   // Filled from metadata cache after first sighting
   meta: AircraftMeta | null
   image: AircraftImage | null
+  route: AircraftRoute | null
 
   firstSeenAt: number     // Unix ms
   lastSeenAt: number      // Unix ms — time of last message (any kind)
@@ -72,4 +73,19 @@ export interface AircraftImage {
   thumbnailUrl: string
   photographer: string
   license: string
+}
+
+// From ADSBDB callsign/route API
+export interface RouteAirport {
+  iataCode: string
+  icaoCode: string
+  name: string
+  municipality: string
+  countryIso: string
+}
+
+export interface AircraftRoute {
+  callsign: string
+  origin: RouteAirport | null
+  destination: RouteAirport | null
 }

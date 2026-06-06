@@ -29,6 +29,7 @@ function scoreAircraft(
   // Prefer aircraft with enriched metadata — they show better cards
   if (a.meta) score += 40
   if (a.image) score += 30
+  if (a.route) score += 25
   if (a.flight) score += 20
 
   // Prefer closer aircraft (within 150nm)

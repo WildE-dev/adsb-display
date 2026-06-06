@@ -33,9 +33,22 @@ export async function createApp() {
   })
 
   // --- Wire state manager → metadata cache ---
-  stateManager.on('newAircraft', (icao, _state) => {
+  stateManager.on('newAircraft', (icao, state) => {
     metadataCache.enqueue(icao, (meta, image) => {
       stateManager.updateMeta(icao, meta, image)
+    })
+    // If we already have the callsign on first sight, kick off a route lookup immediately
+    if (state.flight) {
+      metadataCache.enqueueRoute(state.flight, (route) => {
+        stateManager.updateRoute(icao, route)
+      })
+    }
+  })
+
+  // Callsign arrived in a later message — fetch the route now
+  stateManager.on('flightIdentified', (icao, flight) => {
+    metadataCache.enqueueRoute(flight, (route) => {
+      stateManager.updateRoute(icao, route)
     })
   })
 

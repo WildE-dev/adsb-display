@@ -5,6 +5,7 @@ import type {
   ReadsbSnapshot,
   ReadsbAircraft,
   AircraftState,
+  AircraftRoute,
 } from '@adsb-display/shared'
 import { config } from '../config.js'
 
@@ -13,6 +14,8 @@ interface StateManagerEvents {
   diff: [updated: AircraftState[], removed: string[]]
   // Fires when an ICAO is seen for the first time — triggers metadata fetch
   newAircraft: [icao: string, state: AircraftState]
+  // Fires when a callsign is first assigned to an existing aircraft — triggers route fetch
+  flightIdentified: [icao: string, flight: string]
 }
 
 export class StateManager extends EventEmitter<StateManagerEvents> {
@@ -77,7 +80,14 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
     if (!state) return
     state.meta = meta
     state.image = image
-    // Immediately broadcast this one aircraft as updated
+    this.emit('diff', [state], [])
+  }
+
+  // Called by the metadata cache once a route has been resolved
+  updateRoute(icao: string, route: AircraftRoute | null): void {
+    const state = this.aircraft.get(icao)
+    if (!state) return
+    state.route = route
     this.emit('diff', [state], [])
   }
 
@@ -161,6 +171,7 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
 
       meta: null,
       image: null,
+      route: null,
 
       firstSeenAt: now,
       lastSeenAt: now,
@@ -183,7 +194,12 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
     raw: ReadsbAircraft,
     now: number
   ): AircraftState {
+    const prevFlight = state.flight
     state.flight = raw.flight?.trim() || state.flight
+    // Callsign appeared for the first time → trigger route lookup
+    if (!prevFlight && state.flight) {
+      this.emit('flightIdentified', state.icao, state.flight)
+    }
     state.registration = raw.r ?? state.registration
     state.typeCode = raw.t ?? state.typeCode
     state.lastSeenAt = now

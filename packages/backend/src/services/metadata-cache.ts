@@ -1,9 +1,10 @@
 // packages/backend/src/services/metadata-cache.ts
 
-import type { AircraftMeta, AircraftImage, AircraftState } from '@adsb-display/shared'
+import type { AircraftMeta, AircraftImage, AircraftRoute, RouteAirport } from '@adsb-display/shared'
 import { config } from '../config.js'
 
 type MetaCallback = (meta: AircraftMeta | null, image: AircraftImage | null) => void
+type RouteCallback = (route: AircraftRoute | null) => void
 
 export class MetadataCache {
   // Permanent RAM cache — survives for process lifetime
@@ -14,6 +15,12 @@ export class MetadataCache {
   private queue: Array<{ icao: string; callback: MetaCallback }> = []
   private activeFetches = 0
   private drainTimer: NodeJS.Timeout | null = null
+
+  // Route cache — keyed by normalised callsign (e.g. "BAW123")
+  private routeCache = new Map<string, AircraftRoute | null>()
+  private routeQueue: Array<{ callsign: string; callback: RouteCallback }> = []
+  private activeRouteFetches = 0
+  private routeDrainTimer: NodeJS.Timeout | null = null
 
   enqueue(icao: string, callback: MetaCallback): void {
     // If already cached (even as null — meaning we tried and failed), serve immediately
@@ -135,11 +142,107 @@ export class MetadataCache {
     }
   }
 
+  // ── Route lookup ──────────────────────────────────────────────────────────
+
+  enqueueRoute(callsign: string, callback: RouteCallback): void {
+    const key = callsign.toUpperCase().trim()
+    if (!key) return
+
+    if (this.routeCache.has(key)) {
+      callback(this.routeCache.get(key) ?? null)
+      return
+    }
+
+    // Don't enqueue the same callsign twice while a fetch is in-flight
+    if (this.routeQueue.some(q => q.callsign === key)) return
+    this.routeQueue.push({ callsign: key, callback })
+
+    if (this.routeDrainTimer) clearTimeout(this.routeDrainTimer)
+    this.routeDrainTimer = setTimeout(() => this.drainRoutes(), config.metaFetchDebounceMs)
+  }
+
+  private drainRoutes(): void {
+    while (
+      this.activeRouteFetches < config.metaFetchConcurrency &&
+      this.routeQueue.length > 0
+    ) {
+      const item = this.routeQueue.shift()
+      if (!item) break
+      this.activeRouteFetches++
+      void this.fetchOneRoute(item.callsign, item.callback).finally(() => {
+        this.activeRouteFetches--
+        if (this.routeQueue.length > 0) this.drainRoutes()
+      })
+    }
+  }
+
+  private async fetchOneRoute(callsign: string, callback: RouteCallback): Promise<void> {
+    const route = await this.fetchRoute(callsign)
+    this.routeCache.set(callsign, route)
+    callback(route)
+  }
+
+  private async fetchRoute(callsign: string): Promise<AircraftRoute | null> {
+    try {
+      const url = `https://api.adsbdb.com/v0/callsign/${encodeURIComponent(callsign)}`
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+      if (!res.ok) return null
+
+      const json = await res.json() as {
+        response?: {
+          flightroute?: {
+            callsign?: string
+            origin?: {
+              iata_code?: string
+              icao_code?: string
+              name?: string
+              municipality?: string
+              country_iso_name?: string
+            }
+            destination?: {
+              iata_code?: string
+              icao_code?: string
+              name?: string
+              municipality?: string
+              country_iso_name?: string
+            }
+          }
+        }
+      }
+
+      const fr = json.response?.flightroute
+      if (!fr) return null
+
+      const toAirport = (a: typeof fr.origin): RouteAirport | null => {
+        if (!a?.iata_code) return null
+        return {
+          iataCode: a.iata_code,
+          icaoCode: a.icao_code ?? '',
+          name: a.name ?? '',
+          municipality: a.municipality ?? '',
+          countryIso: a.country_iso_name ?? '',
+        }
+      }
+
+      return {
+        callsign,
+        origin: toAirport(fr.origin),
+        destination: toAirport(fr.destination),
+      }
+    } catch {
+      return null
+    }
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+
   stats() {
     return {
       cachedMeta: this.metaCache.size,
       cachedImages: this.imageCache.size,
+      cachedRoutes: this.routeCache.size,
       queueLength: this.queue.length,
+      routeQueueLength: this.routeQueue.length,
       activeFetches: this.activeFetches,
     }
   }
