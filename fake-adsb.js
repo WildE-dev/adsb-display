@@ -86,8 +86,9 @@ function moveAircraft(ac) {
     const speed = typeof ac.gs === 'number' ? ac.gs : 0
     const distNm = speed * (dtSec / 3600)
     const distDeg = distNm / 60
+    const cosLat = Math.cos(ac.lat * Math.PI / 180)
     ac.lat += Math.cos(ac._trackRad) * distDeg
-    ac.lon += Math.sin(ac._trackRad) * distDeg
+    ac.lon += Math.sin(ac._trackRad) * distDeg / cosLat
 
     // Occasional turn
     if (Math.random() < 0.1) {
@@ -98,8 +99,9 @@ function moveAircraft(ac) {
     const gs = typeof ac.gs === 'number' ? ac.gs : 300
     const distNm = gs * (dtSec / 3600)
     const distDeg = distNm / 60
+    const cosLat = Math.cos(ac.lat * Math.PI / 180)
     ac.lat += Math.cos(ac._trackRad) * distDeg
-    ac.lon += Math.sin(ac._trackRad) * distDeg
+    ac.lon += Math.sin(ac._trackRad) * distDeg / cosLat
 
     // Gentle track drift
     ac.track = (ac.track + randBetween(-1, 1) + 360) % 360
