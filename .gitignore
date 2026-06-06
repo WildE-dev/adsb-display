@@ -3,3 +3,4 @@ node_modules
 dist
 .env*
 packages/backend/aircraft.json
+packages/shared/tsconfig.tsbuildinfo
