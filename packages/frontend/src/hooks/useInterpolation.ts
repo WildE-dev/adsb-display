@@ -3,14 +3,15 @@ import { useAircraftStore } from '../store/aircraftStore.js'
 import { deadReckon } from '../lib/interpolation.js'
 
 export interface InterpolatedPosition {
-  icao:          string
-  lat:           number
-  lon:           number
-  trackDeg:      number
-  altitudeFt:    number | null
-  groundSpeedKts:number | null
-  flight:        string | null
+  icao:            string
+  lat:             number
+  lon:             number
+  trackDeg:        number
+  altitudeFt:      number | null
+  groundSpeedKts:  number | null
+  flight:          string | null
   positionHistory: Array<{ lat: number; lon: number; t: number }>
+  lastPositionAt:  number  // Unix ms — used to suppress stale trails
 }
 
 // onFrame is called every animation frame with the full interpolated position list.
@@ -40,22 +41,25 @@ export function useInterpolation(
         // Don't dead-reckon ground traffic — they stop, turn, taxi unpredictably
         if (a.onGround) {
           positions.push({
-            icao:           a.icao,
-            lat:            a.lat,
-            lon:            a.lon,
-            trackDeg:       a.trackDeg ?? 0,
-            altitudeFt:     a.altitudeFt,
-            groundSpeedKts: a.groundSpeedKts,
-            flight:         a.flight,
+            icao:            a.icao,
+            lat:             a.lat,
+            lon:             a.lon,
+            trackDeg:        a.trackDeg ?? 0,
+            altitudeFt:      a.altitudeFt,
+            groundSpeedKts:  a.groundSpeedKts,
+            flight:          a.flight,
             positionHistory: a.positionHistory,
+            lastPositionAt:  a.lastPositionAt,
           })
           continue
         }
 
-        const elapsedMs = now - a.lastSeenAt
+        // Reckon from the last position fix, not the last message — avoids
+        // snapping backwards when a non-position message (e.g. ADS-B velocity)
+        // advances lastSeenAt without updating lat/lon.
+        const elapsedMs = now - a.lastPositionAt
 
         // Cap dead reckoning at 30s — beyond that the estimate drifts too far.
-        // Aircraft that go silent for >30s are likely out of range anyway.
         const clampedMs = Math.min(elapsedMs, 30_000)
 
         let lat      = a.lat
@@ -74,14 +78,15 @@ export function useInterpolation(
         }
 
         positions.push({
-          icao:           a.icao,
+          icao:            a.icao,
           lat,
           lon,
           trackDeg,
-          altitudeFt:     a.altitudeFt,
-          groundSpeedKts: a.groundSpeedKts,
-          flight:         a.flight,
+          altitudeFt:      a.altitudeFt,
+          groundSpeedKts:  a.groundSpeedKts,
+          flight:          a.flight,
           positionHistory: a.positionHistory,
+          lastPositionAt:  a.lastPositionAt,
         })
       }
 

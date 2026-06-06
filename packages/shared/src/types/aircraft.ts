@@ -46,8 +46,9 @@ export interface AircraftState {
   meta: AircraftMeta | null
   image: AircraftImage | null
 
-  firstSeenAt: number   // Unix ms
-  lastSeenAt: number    // Unix ms
+  firstSeenAt: number     // Unix ms
+  lastSeenAt: number      // Unix ms — time of last message (any kind)
+  lastPositionAt: number  // Unix ms — time of last lat/lon fix
   positionHistory: Array<{ lat: number; lon: number; t: number }>
   messageCount: number
   rssi: number

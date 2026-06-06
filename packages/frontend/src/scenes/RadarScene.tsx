@@ -100,10 +100,12 @@ export function RadarScene() {
       })),
     })
 
+    const now = Date.now()
+    const TRAIL_STALE_MS = 30_000
     trailSource.setData({
       type: 'FeatureCollection',
       features: positions
-        .filter(a => a.positionHistory.length > 1)
+        .filter(a => a.positionHistory.length > 1 && (now - a.lastPositionAt) < TRAIL_STALE_MS)
         .map(a => {
           const coords = a.positionHistory.map(p => [p.lon, p.lat])
           coords.push([a.lon, a.lat])

@@ -165,6 +165,7 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
 
       firstSeenAt: now,
       lastSeenAt: now,
+      lastPositionAt: raw.lat !== undefined && raw.lon !== undefined ? now : 0,
       positionHistory: [],
       messageCount: raw.messages,
       rssi: raw.rssi,
@@ -203,6 +204,7 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
     if (raw.lat !== undefined && raw.lon !== undefined && (raw.seen_pos ?? 99) < 5) {
       state.lat = raw.lat
       state.lon = raw.lon
+      state.lastPositionAt = now
 
       // Append to trail, drop oldest point if over limit
       state.positionHistory.push({ lat: raw.lat, lon: raw.lon, t: now })

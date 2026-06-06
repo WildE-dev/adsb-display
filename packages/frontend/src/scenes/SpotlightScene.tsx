@@ -152,14 +152,58 @@ export function SpotlightScene() {
             ))}
           </div>
 
-          {/* ICAO hex */}
+          {/* ICAO hex + signal strength */}
           <motion.div custom={7} variants={fieldAnim} initial="hidden" animate="visible"
-            style={{ marginTop: 24, fontSize: 11, color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
-            ICAO {subject.icao.toUpperCase()}
-            {meta?.countryIso && <span style={{ marginLeft: 12 }}>{meta.countryIso}</span>}
+            style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+              ICAO {subject.icao.toUpperCase()}
+              {meta?.countryIso && <span style={{ marginLeft: 12 }}>{meta.countryIso}</span>}
+            </div>
+            <SignalStrength rssi={subject.rssi} />
           </motion.div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// RSSI is typically −10 (strong) to −30 dBFS (weak) for ADS-B
+function SignalStrength({ rssi }: { rssi: number }) {
+  const BAR_COUNT = 5
+  // Map rssi range [−30, −10] → [0, 1], clamp outside that range
+  const strength = Math.max(0, Math.min(1, (rssi + 30) / 20))
+  const filledBars = Math.round(strength * BAR_COUNT)
+
+  const color = strength > 0.6
+    ? 'var(--color-accent)'
+    : strength > 0.3
+    ? '#f5a623'
+    : '#e05252'
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3 }} title={`${rssi.toFixed(1)} dBFS`}>
+      {Array.from({ length: BAR_COUNT }, (_, i) => (
+        <div
+          key={i}
+          style={{
+            width: 4,
+            height: 6 + i * 3,
+            borderRadius: 1,
+            background: i < filledBars ? color : 'var(--color-border-bright)',
+            opacity: i < filledBars ? 1 : 0.3,
+            transition: 'background 0.4s ease',
+          }}
+        />
+      ))}
+      <span style={{
+        marginLeft: 6,
+        fontSize: 10,
+        fontFamily: 'var(--font-mono)',
+        color: 'var(--color-text-muted)',
+        letterSpacing: '0.05em',
+      }}>
+        {rssi.toFixed(1)} dBFS
+      </span>
     </div>
   )
 }
