@@ -33,6 +33,8 @@ export function RadarScene() {
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return
 
+    let cancelled = false
+
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: {
@@ -57,6 +59,7 @@ export function RadarScene() {
     map.on('load', () => {
       const img = new Image(32, 32)
       img.onload = () => {
+        if (cancelled) return
         map.addImage('aircraft-icon', img, { sdf: true })
         addAircraftLayers(map)
         addReceiverMarker(map, receiverLat, receiverLon)
@@ -67,6 +70,7 @@ export function RadarScene() {
 
     mapRef.current = map
     return () => {
+      cancelled = true
       mapReadyRef.current = false
       map.remove()
       mapRef.current = null

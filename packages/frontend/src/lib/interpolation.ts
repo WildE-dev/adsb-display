@@ -25,6 +25,8 @@ export function deadReckon(
   elapsedMs: number
 ): DeadReckonResult {
   if (speedKts <= 0 || elapsedMs <= 0) return { lat, lon }
+  // cos(lat) → 0 at the poles; guard against division by zero from bad data
+  if (Math.abs(lat) >= 90) return { lat, lon }
 
   // Convert knots + elapsed time to nautical miles travelled
   const elapsedHours  = elapsedMs / 3_600_000

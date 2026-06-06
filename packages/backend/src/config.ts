@@ -9,7 +9,6 @@ export const config = {
   weatherPollIntervalMs: 5 * 60 * 1000,
   metaFetchDebounceMs:  500,
   metaFetchConcurrency: 3,
-  statsResetHour:       0,
   corsOrigins: process.env['CORS_ORIGINS']?.split(',') ?? [
     'http://localhost:3000',
     'http://localhost:4173',

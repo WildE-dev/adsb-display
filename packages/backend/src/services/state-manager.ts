@@ -223,6 +223,8 @@ export class StateManager extends EventEmitter<StateManagerEvents> {
     }
     this.highestAltFt = null
     this.fastestKts = null
+    // Clear so aircraft that had failed fetches yesterday can be retried today
+    this.metaRequested.clear()
   }
 }
 

@@ -24,6 +24,8 @@ export class MetadataCache {
 
     // Debounce: on startup we might get 50 aircraft at once. Queue them and drain
     // after a short pause so we don't fire 50 concurrent HTTP requests.
+    // Guard against the same ICAO being enqueued twice before its fetch completes.
+    if (this.queue.some(q => q.icao === icao)) return
     this.queue.push({ icao, callback })
 
     if (this.drainTimer) clearTimeout(this.drainTimer)

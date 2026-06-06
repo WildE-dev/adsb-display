@@ -83,7 +83,11 @@ export class WeatherService extends EventEmitter<WeatherServiceEvents> {
     const currentHourIndex = json.hourly.time.findIndex(
       t => new Date(t) >= now
     )
-    const startIdx = Math.max(0, currentHourIndex)
+    // findIndex returns -1 if all slots are in the past (stale API data).
+    // Fall back to the last available slot rather than wrapping to index 0.
+    const startIdx = currentHourIndex >= 0
+      ? currentHourIndex
+      : Math.max(0, json.hourly.time.length - 12)
 
     const forecast = json.hourly.time
       .slice(startIdx, startIdx + 12)

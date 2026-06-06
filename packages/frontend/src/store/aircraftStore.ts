@@ -13,7 +13,6 @@ interface AircraftStore {
 
   setSnapshot: (aircraft: AircraftState[], lat: number, lon: number) => void
   applyDiff: (updated: AircraftState[], removed: string[]) => void
-  setAircraftPosition: (icao: string, lat: number, lon: number, trackDeg: number) => void
   setSpotlightIcao: (icao: string | null) => void
   setZoomToIcao: (icao: string | null) => void
 }
@@ -36,16 +35,6 @@ export const useAircraftStore = create<AircraftStore>((set, get) => ({
       const next = new Map(state.aircraft)
       for (const a of updated) next.set(a.icao, a)
       for (const icao of removed) next.delete(icao)
-      return { aircraft: next }
-    })
-  },
-
-  setAircraftPosition: (icao, lat, lon, trackDeg) => {
-    const current = get().aircraft.get(icao)
-    if (!current) return
-    set(state => {
-      const next = new Map(state.aircraft)
-      next.set(icao, { ...current, lat, lon, trackDeg })
       return { aircraft: next }
     })
   },
